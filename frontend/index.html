@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lab 01 - Microservices Demo</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            padding: 32px 18px;
+            font-family: Arial, sans-serif;
+            color: #243042;
+            background: #f3f6fb;
+        }
+        main { max-width: 850px; margin: 0 auto; }
+        .card {
+            margin-bottom: 22px;
+            padding: 24px;
+            background: #fff;
+            border: 1px solid #e4eaf2;
+            border-radius: 14px;
+            box-shadow: 0 5px 18px rgba(35, 55, 80, .06);
+        }
+        h1 { margin: 0 0 8px; font-size: 27px; }
+        h2 { margin: 0 0 16px; font-size: 20px; }
+        .sub { margin: 0 0 24px; color: #68778b; line-height: 1.5; }
+        .service-row { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; }
+        .service {
+            flex: 1 1 180px;
+            padding: 12px 14px;
+            border-radius: 10px;
+            background: #f0f5ff;
+            color: #315b9a;
+            font-size: 14px;
+        }
+        .service strong { display: block; margin-bottom: 4px; }
+        button {
+            padding: 10px 16px;
+            border: 0;
+            border-radius: 8px;
+            background: #245fca;
+            color: white;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        button:hover { background: #174da9; }
+        button:disabled { opacity: .6; cursor: wait; }
+        input {
+            width: min(100%, 260px);
+            padding: 10px 12px;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            font-size: 15px;
+        }
+        .controls { display: flex; gap: 10px; flex-wrap: wrap; }
+        ul { padding-left: 22px; margin-bottom: 0; }
+        li { padding: 7px 0; border-bottom: 1px solid #edf1f6; }
+        pre {
+            min-height: 48px;
+            margin: 16px 0 0;
+            padding: 14px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            overflow-wrap: anywhere;
+            background: #f6f8fb;
+            border: 1px solid #e5eaf1;
+            border-radius: 8px;
+            line-height: 1.5;
+        }
+        .message { color: #64748b; }
+        .error { color: #b42318; }
+        .success { color: #167647; }
+        @media (max-width: 520px) {
+            body { padding: 18px 12px; }
+            .card { padding: 18px; }
+            .controls { flex-direction: column; }
+            .controls input, .controls button { width: 100%; }
+        }
+    </style>
+</head>
+<body>
+<main>
+    <section class="card">
+        <h1>Lab 01 - Microservices Demo</h1>
+        <p class="sub">Thuc hanh giao tiep giua Product Service va Order Service bang REST API.</p>
+        <div class="service-row">
+            <div class="service"><strong>Product Service</strong>http://localhost:8081</div>
+            <div class="service"><strong>Order Service</strong>http://localhost:8082</div>
+        </div>
+    </section>
+
+    <section class="card">
+        <h2>Danh sách sản phẩm</h2>
+        <button id="loadButton" onclick="loadProducts()">Tải danh sách sản phẩm</button>
+        <ul id="productList"><li class="message">Nhấn nút để tải sản phẩm.</li></ul>
+    </section>
+
+    <section class="card">
+        <h2>Tìm sản phẩm thông qua Order Service</h2>
+        <div class="controls">
+            <input type="number" id="productId" placeholder="Nhập ID sản phẩm" min="1" step="1">
+            <button id="findButton" onclick="findProduct()">Tìm sản phẩm</button>
+        </div>
+        <pre id="result" class="message">Kết quả tìm kiếm sẽ hiển thị tại đây.</pre>
+    </section>
+</main>
+
+<script>
+    // Gọi trực tiếp Product Service (cổng 8081) để lấy danh sách sản phẩm.
+    async function loadProducts() {
+        const list = document.getElementById("productList");
+        const button = document.getElementById("loadButton");
+        button.disabled = true;
+        list.textContent = "Đang tải dữ liệu...";
+
+        try {
+            const response = await fetch("http://localhost:8081/api/products");
+            if (!response.ok) {
+                throw new Error(`Product Service trả về HTTP ${response.status}`);
+            }
+
+            const products = await response.json();
+            list.innerHTML = "";
+
+            if (!Array.isArray(products) || products.length === 0) {
+                list.textContent = "Chưa có sản phẩm.";
+                return;
+            }
+
+            products.forEach(product => {
+                const li = document.createElement("li");
+                li.textContent = `${product.id} - ${product.name} - ${Number(product.price).toLocaleString("vi-VN")} VNĐ`;
+                list.appendChild(li);
+            });
+        } catch (error) {
+            list.textContent = "Lỗi: " + error.message + ". Hãy kiểm tra Product Service (8081).";
+            list.className = "error";
+        } finally {
+            button.disabled = false;
+        }
+    }
+
+    // Gọi Order Service (cổng 8082); Order Service sẽ gọi tiếp Product Service.
+    async function findProduct() {
+        const id = document.getElementById("productId").value.trim();
+        const result = document.getElementById("result");
+        const button = document.getElementById("findButton");
+
+        if (!id || !Number.isInteger(Number(id)) || Number(id) < 1) {
+            result.className = "error";
+            result.textContent = "Vui lòng nhập ID hợp lệ (số nguyên lớn hơn hoặc bằng 1).";
+            return;
+        }
+
+        button.disabled = true;
+        result.className = "message";
+        result.textContent = "Đang tìm sản phẩm...";
+
+        try {
+            const response = await fetch(`http://localhost:8082/api/orders/product/${encodeURIComponent(id)}`);
+
+            if (response.status === 404) {
+                result.className = "error";
+                result.textContent = "Không tìm thấy sản phẩm có ID = " + id;
+                return;
+            }
+
+            if (!response.ok) {
+                let message = `Order Service trả về HTTP ${response.status}`;
+                try {
+                    const errorData = await response.json();
+                    if (errorData.error) message = errorData.error;
+                } catch (_) {
+                    // Phan hoi loi khong co JSON thi dung thong bao mac dinh.
+                }
+                throw new Error(message);
+            }
+
+            const product = await response.json();
+            result.className = "success";
+            result.textContent = JSON.stringify(product, null, 2);
+        } catch (error) {
+            result.className = "error";
+            result.textContent = "Lỗi: " + error.message + ". Hãy kiểm tra Order Service (8082) và Product Service (8081).";
+        } finally {
+            button.disabled = false;
+        }
+    }
+</script>
+</body>
+</html>
